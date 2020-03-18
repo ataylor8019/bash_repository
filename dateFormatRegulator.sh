@@ -243,7 +243,7 @@ fileRename() {    #Create a new date string using the date program and the desir
         newDate=$(eval date -d ${dateFriendlyString} +%m_%d_%Y)
     fi
 
-    newFileName="attendance_${newDate}"
+    newFileName="attendancelog_${newDate}"
 
     printf "${newFileName}"
 }
