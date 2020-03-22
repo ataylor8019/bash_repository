@@ -22,6 +22,10 @@ helpSelection=""
 
 ### Begin function definitions ###
 
+
+
+
+#Help sections not commented, display functions only, purpose is self explanatory
 helpOverview() {
     printf "This option provides information on usage of this program. Run with -h and\n"
     printf "no arguments to see a list of arguments that will give you information on\n"
@@ -311,7 +315,7 @@ customDateFormatString() {    #Display function, exists to seperate display conc
 
 
 
-validateDayMonthInput() {
+validateDayMonthInput() {    #Validate that input is 2 digits, and that no one is trying to pass garbage to perform injections
 local inputValue=${1}
 
 if echo "${inputValue}" | grep -E '(^[0-9]{2}$)|(^$)' ; then
@@ -321,7 +325,7 @@ else
 fi
 }
 
-validateYearInput() {
+validateYearInput() {    #Validate that input is a year, 4 digits, and that no one is trying to pass garbage to perform injections
 local inputValue=${1}
 
 if echo "${inputValue}" | grep -E '(^[0-9]{4}$)|(^$)' ; then
@@ -331,7 +335,7 @@ else
 fi
 }
 
-validateNumericInput() {
+validateNumericInput() {    #Validate that input is one number, 0-9, upper or lowercase
 local inputValue=${1}
 
 if echo "${inputValue}" | grep -E '^[0-9]{1}$' ; then
@@ -341,7 +345,7 @@ else
 fi
 }
 
-validateAlphaInput() {
+validateAlphaInput() {    #Validate that input is one letter, a-z, upper or lowercase
 local inputValue=${1}
 
 if echo "${inputValue}" | grep -E '^[a-zA-Z]{1}$' ; then
@@ -352,7 +356,7 @@ fi
 }
 
 
-scanFile() {
+scanFile() {    #file scan function, goes through files in target location, returns name or renames based on value in dateSearchMode
     local dateSearchMode=${1}
     local dateSearchPattern=${2}
     local customSelection
@@ -510,18 +514,18 @@ clear
 
 
 
-while getopts ":h:" opt
+while getopts ":h:" opt    #scan options and arguments passed to the program
 do
     case "${opt}" in
         h )
-            helpSelection="${OPTARG}"
+            helpSelection="${OPTARG}"    #Get helpSelection value from passed argument
             ;;
         : )
-            helpOverview
+            helpOverview    #Passed with just -h, print general help overview, exit
             exit
             ;;
         \? ) 
-            printf "Invalid option, use dateFormatRegulator.sh -h to find acceptable\n"
+            printf "Invalid option, use dateFormatRegulator.sh -h to find acceptable\n"    #Bad option passed, give error message, exit
             printf "options and arguments.\n"
             printf "Exiting program\n\n"
             exit
@@ -529,68 +533,77 @@ do
     esac
 done
 
-if [ "${helpSelection}" = "mainmenu" ]; then
-    helpMainMenu
-    exit
-elif [ "${helpSelection}" = "initialsetup" ] || [ "${helpSelection}" = "scanlocation" ]; then
-    helpInitialSetup
-    exit
-elif [ "${helpSelection}" = "dateconversion" ]; then
-    helpDateConversion
-    exit
-elif [ "${helpSelection}" = "datesearch" ]; then
-    helpDateSearch
-    exit
+if [ -n "${helpSelection}" ]; then    #All of the below only applies if something is in helpSelection. If it's empty, no need to print help messages or errors about such, continue on
+    #Print one of the help menus based on the value passed to helpSelection
+    if [ "${helpSelection}" = "mainmenu" ]; then
+        helpMainMenu
+        exit
+    elif [ "${helpSelection}" = "initialsetup" ] || [ "${helpSelection}" = "scanlocation" ]; then
+        helpInitialSetup
+        exit
+    elif [ "${helpSelection}" = "dateconversion" ]; then
+        helpDateConversion
+        exit
+    elif [ "${helpSelection}" = "datesearch" ]; then
+        helpDateSearch
+        exit
+    else
+        printf "Invalid argument, use dateFormatRegulator.sh -h to find acceptable\n"    #Bad argument passed, give error message, exit
+        printf "options and arguments.\n"
+        printf "Exiting program\n\n"
+    fi
 fi
 
+#First run through, print the title, author, initial data gathering prompt
 printTitle
 printAuthor
 setupRoutine
-clear
+clear    #clear the screen, the previous functions print menus that we want cleared going to the next execution stage
 
-finalProgramExit='n'
+finalProgramExit='n' #Setup for program loop below
 
+#While we haven't said yes to finalProgramExit
 while [ ${finalProgramExit} != 'y' ]; do
-    printTitle
-    printMenu
+    printTitle    #Print the title screen
+    printMenu    #Print the general menu screen
 
 
 
-    while [ "${generalInputValid}" = "false" ]; do
-        if [ "${isNotInitialRun}" = "true" ]; then
+    while [ "${generalInputValid}" = "false" ]; do    #Loop until we don't get garbage anymore
+        if [ "${isNotInitialRun}" = "true" ]; then    #If here, we have run the program loop through at least once, print the appropriate message
             printf "\nWould you like to continue? Press 4 to quit, or any other key to continue: \n"
-        else
+        else    #if here, we haven't run the program loop through at least once yet, print the appropriate message
             printf "\nPress 4 to quit, or any other key to continue:\n"
         fi
         read menuInput
-        generalInputValid=$(eval validateNumericInput ${menuInput})
+        generalInputValid=$(eval validateNumericInput ${menuInput})    #Verifies that our input is acceptable, not garbage
     done
-    generalInputValid="false"
+    generalInputValid="false"    #Set this variable to false, we will be using it again in the program
 
+    #In all of the below options, the screen is cleared, and printTitle executed to maintain visual continuity between menu and execution screens
     if [ ${menuInput} -eq 1 ]; then
         clear
         printTitle
-        scanFile "" ""
+        scanFile "" ""    #If here, we are doing a file rename, so we go straight into scanFile
     elif [ ${menuInput} -eq 2 ]; then
         clear
         printTitle
-        searchFilter
+        searchFilter    #If here, we are going to do a file date search, go into searchFilter to get the date data
     elif [ ${menuInput} -eq 3 ]; then
         clear
         printTitle
-        setupRoutine
+        setupRoutine    #If here, we are going to change the location we are working in
     elif [ ${menuInput} -eq 4 ]; then
         clear
         printTitle
-        verifyExit
+        verifyExit    #If here, we are going to exit, verify exit
     elif [ ${menuInput} -eq 0 ]; then
         clear
-        exit
+        exit    #If here, exit immediately (used for debugging purposes)
     else
-        continue
+        continue    #If here, it's not one of the above, continue the loop
     fi
-    isNotInitialRun="true"
-#    clear
+    isNotInitialRun="true"    #We've run through the loop at least once, mark the variable accordingly for conditional statements above
 done
 
 ### End main program execution ###
