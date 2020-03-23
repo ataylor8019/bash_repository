@@ -150,7 +150,11 @@ verifyValidFileName() {
     local yearPart=${4}
 
     #test the prefix and date parts passed
-    validPrefix=$(eval "verifyValidPrefix ${prefixValue}")
+    if [ "${readPrefix}" = "true" ]; then
+        validPrefix=$(eval "verifyValidPrefix ${prefixValue}")
+    else
+        validPrefix="true"
+    fi
     validDate=$(eval "verifyValidDate ${monthPart} ${dayPart} ${yearPart}")
 
     #if both pass the test, file name is valid by our standards
@@ -247,7 +251,7 @@ fileRename() {    #Create a new date string using the date program and the desir
         newDate=$(eval date -d ${dateFriendlyString} +%m_%d_%Y)
     fi
 
-    newFileName="attendancelog_${newDate}"
+    newFileName="attendancelog_${newDate}.txt"
 
     printf "${newFileName}"
 }
@@ -305,11 +309,11 @@ customDateFormatString() {    #Display function, exists to seperate display conc
     elif [ "${customSelection}" = "f" ]; then
         echo "%m.%d.%Y"
     elif [ "${customSelection}" = "g" ]; then
-        echo "%b%d%Y"
+        echo "%m%d%Y"
     elif [ "${customSelection}" = "h" ]; then
-       echo "%b_%d_%Y"
+       echo "%m_%d_%Y"
     else
-       echo "%b_%d_%Y"
+       echo "%m_%d_%Y"
     fi
 }
 
@@ -348,7 +352,7 @@ fi
 validateAlphaInput() {    #Validate that input is one letter, a-z, upper or lowercase
 local inputValue=${1}
 
-if echo "${inputValue}" | grep -E '^[a-zA-Z]{1}$' ; then
+if echo "${inputValue}" | grep -E '(^[a-zA-Z]{1}$)|(^$)' ; then
     printf "true"
 else
     printf "false"
@@ -380,12 +384,21 @@ scanFile() {    #file scan function, goes through files in target location, retu
     do        # Run the fileName through sed, get the possible prefix and date parts
         coreDateData=$(printf "${fileName}" | sed -En 's/([\w]*)[._ ]?([Jj]anuary|[Ff]ebruary|[Mm]arch|[Aa]pril|[Mm]ay|[Jj]une|[Jj]uly|[Aa]ugust|[Ss]eptember|[Oo]ctober|[Nn]ovember|[Dd]ecember|[Jj]an|[Ff]eb|[Mm]ar|[Aa]pr|[Jj]un|[Jj]ul|[Aa]ug|[Ss]ep|[Oo]ct|[Nn]ov|[Dd]ec|[0-9]{2})[ _,.-]?([0-9]{2})[ _,.-]?\s?([0-9]{4})[^\.]*/\1 \2 \3 \4 /p')
         read -ra dateComponents <<< $coreDateData        # arrayify the variable we just filled
-        validFileName=$(eval "verifyValidFileName ${dateComponents[0]} ${dateComponents[1]} ${dateComponents[2]} ${dateComponents[3]}")    # Check against rules for valid file name entries
+
+        if [ -z "${dateSearchMode}" ];  then
+            validFileName=$(eval "verifyValidFileName ${dateComponents[0]} ${dateComponents[1]} ${dateComponents[2]} ${dateComponents[3]} 'true'")    # Check against rules for valid file name entries
+        else
+            validFileName=$(eval "verifyValidFileName ${dateComponents[0]} ${dateComponents[1]} ${dateComponents[2]} ${dateComponents[3]} 'false'")    # Check against rules for valid file name entries
+        fi
+
         if [ "${validFileName}" = "true" ]; then        # If here, it is valid
             normalizedDate=$(eval 'normalizeDate  ${dateComponents[1]} ${dateComponents[2]} ${dateComponents[3]}')    #return date string that we can feed to 'date' program
              
             if [ -z "${dateSearchMode}" ]; then    #if nothing in dateSearchMode, we are doing file renames
                 correctedFileName=$(eval fileRename  ${normalizedDate} "'${dateFormat}'")    #feed normalizedDate, dateFormat to fileRename to fileRename function
+
+                cp "${fileName}" archivedAttendance
+
                 mv -T "${fileName}" "${correctedFileName}" #file rename and standard check for success of rename
                 if [ $? -eq 0 ]; then
                     printf "Renamed %s to %s\n" "${fileName}" "${correctedFileName}"
@@ -401,6 +414,8 @@ scanFile() {    #file scan function, goes through files in target location, retu
                 fi
             fi
         else
+            cp "${fileName}" badFormatFiles
+            rm -f "${fileName}"
             continue
         fi
     done
@@ -486,7 +501,8 @@ setupDirectory() {    #Specifically ask the user for the desired directory, noti
     read targetDirectory
 
     if [ -z "${targetDirectory}" ]; then
-        :
+        mkdir archivedAttendance
+        mkdir badFormatFiles
     else
         cd ${targetDirectory}
         currentDirectory=$(pwd)
@@ -496,6 +512,8 @@ setupDirectory() {    #Specifically ask the user for the desired directory, noti
             printf "Exiting program.\n"
             exit
         fi 
+        mkdir archivedAttendance
+        mkdir badFormatFiles
     fi
 }
 
