@@ -14,8 +14,6 @@ validFileName="false"
 isNotInitialRun="false"
 generalInputValid="false"
 correctedFileName=""
-dateFormat=""
-normalizedDate=""
 menuInput=0
 helpSelection=""
 
@@ -148,6 +146,7 @@ verifyValidFileName() {
     local monthPart=${2}
     local dayPart=${3}
     local yearPart=${4}
+    local readPrefix="${5}"
 
     #test the prefix and date parts passed
     if [ "${readPrefix}" = "true" ]; then
@@ -359,77 +358,157 @@ else
 fi
 }
 
-
-scanFile() {    #file scan function, goes through files in target location, returns name or renames based on value in dateSearchMode
-    local dateSearchMode=${1}
-    local dateSearchPattern=${2}
+fileRenameCycle() {    #Refactored out of scanFile, only detects dates of files and returns valid matches
+    local dateFormat
+    local dateLocated
+    local coreDateData
+    local dateComponents
     local customSelection
+    local validFileName="false"
     local validInput="false"
 
     local matchedFileCount=0
 
-    clear
-    if [ "${dateSearchMode}" ]; then 
-        printf "The following files match your date search query:\n\n"
-   else
-        while [ "${validInput}" = "false" ]; do
-            customDateMenu
-            read customSelection
-            validInput=$(eval validateAlphaInput ${customSelection})
-        done
-        dateFormat=$(eval customDateFormatString "${customSelection}")
-   fi
+    while [ "${validInput}" = "false" ]; do
+        customDateMenu
+        read customSelection
+        validInput=$(eval validateAlphaInput ${customSelection})
+    done
+    
+    dateFormat=$(eval customDateFormatString "${customSelection}")
 
     for fileName in *
     do        # Run the fileName through sed, get the possible prefix and date parts
         coreDateData=$(printf "${fileName}" | sed -En 's/([\w]*)[._ ]?([Jj]anuary|[Ff]ebruary|[Mm]arch|[Aa]pril|[Mm]ay|[Jj]une|[Jj]uly|[Aa]ugust|[Ss]eptember|[Oo]ctober|[Nn]ovember|[Dd]ecember|[Jj]an|[Ff]eb|[Mm]ar|[Aa]pr|[Jj]un|[Jj]ul|[Aa]ug|[Ss]ep|[Oo]ct|[Nn]ov|[Dd]ec|[0-9]{2})[ _,.-]?([0-9]{2})[ _,.-]?\s?([0-9]{4})[^\.]*/\1 \2 \3 \4 /p')
         read -ra dateComponents <<< $coreDateData        # arrayify the variable we just filled
+        validFileName=$(eval "verifyValidFileName ${dateComponents[0]} ${dateComponents[1]} ${dateComponents[2]} ${dateComponents[3]} 'true'")    # Check against rules for valid file name entries
 
-        if [ -z "${dateSearchMode}" ];  then
-            validFileName=$(eval "verifyValidFileName ${dateComponents[0]} ${dateComponents[1]} ${dateComponents[2]} ${dateComponents[3]} 'true'")    # Check against rules for valid file name entries
-        else
-            validFileName=$(eval "verifyValidFileName ${dateComponents[0]} ${dateComponents[1]} ${dateComponents[2]} ${dateComponents[3]} 'false'")    # Check against rules for valid file name entries
-        fi
-
-        if [ "${validFileName}" = "true" ]; then        # If here, it is valid
+        if [ "${validFileName}" = "true" ] && [ "${fileName}" != "dateFormatRegulator.sh" ] && [ "${fileName}" != "archivedAttendance" ] && [ "${fileName}" != "badFormatFiles" ]; then        # If here, it is valid
             normalizedDate=$(eval 'normalizeDate  ${dateComponents[1]} ${dateComponents[2]} ${dateComponents[3]}')    #return date string that we can feed to 'date' program
-             
-            if [ -z "${dateSearchMode}" ]; then    #if nothing in dateSearchMode, we are doing file renames
-                correctedFileName=$(eval fileRename  ${normalizedDate} "'${dateFormat}'")    #feed normalizedDate, dateFormat to fileRename to fileRename function
-
-                cp "${fileName}" archivedAttendance
-
-                mv -T "${fileName}" "${correctedFileName}" #file rename and standard check for success of rename
-                if [ $? -eq 0 ]; then
-                    printf "Renamed %s to %s\n" "${fileName}" "${correctedFileName}"
-                    matchedFileCount=$((matchedFileCount + 1))
-                else
-                    printf "Failed to rename %s to %s, continuing to next file\n" "${fileName}" "${correctedFileName}"
-                fi
+            correctedFileName=$(eval fileRename  ${normalizedDate} "'${dateFormat}'")    #feed normalizedDate, dateFormat to fileRename to fileRename function
+            cp "${fileName}" archivedAttendance
+            mv -T "${fileName}" "${correctedFileName}" #file rename and standard check for success of rename
+            if [ $? -eq 0 ]; then
+                printf "Renamed %s to %s\n" "${fileName}" "${correctedFileName}"
+                matchedFileCount=$((matchedFileCount + 1))
             else
-               dateLocated=$(eval 'userFileSearchMatch ${normalizedDate} "${dateSearchPattern}"')
-                if [ "${dateLocated}" = "true" ]; then 
-                    printf "${fileName}\n"
-                    matchedFileCount=$((matchedFileCount + 1))
-                fi
+                printf "Failed to rename %s to %s, continuing to next file\n" "${fileName}" "${correctedFileName}"
             fi
-        else
+        elif [ "${fileName}" != "dateFormatRegulator.sh" ] && [ "${fileName}" != "archivedAttendance" ] && [ "${fileName}" != "badFormatFiles" ]; then    #Extra test data is to ensure that we don't move the program file or any work folders in the location we are in
             cp "${fileName}" badFormatFiles
             rm -f "${fileName}"
+        else
+            continue
+        fi
+    done
+            
+    if [ ${matchedFileCount} -eq 0 ]; then  #if here, nothing matched, print message so user knows work was attempted, there was just nothing to work on
+        printf "\nNo files having convertable date formats were found\n"
+    fi        
+}
+
+fileDisplayCycle() {    #Refactored out of scanFile, only changes names of files that match valid file format
+    local dateSearchPattern=${1}
+    local dateLocated
+    local coreDateData
+    local dateComponents
+    local matchedFileCount=0
+
+    printf "The following files match your date search query:\n\n"
+
+    for fileName in *
+    do        # Run the fileName through sed, get the possible prefix and date parts
+        coreDateData=$(printf "${fileName}" | sed -En 's/([\w]*)[._ ]?([Jj]anuary|[Ff]ebruary|[Mm]arch|[Aa]pril|[Mm]ay|[Jj]une|[Jj]uly|[Aa]ugust|[Ss]eptember|[Oo]ctober|[Nn]ovember|[Dd]ecember|[Jj]an|[Ff]eb|[Mm]ar|[Aa]pr|[Jj]un|[Jj]ul|[Aa]ug|[Ss]ep|[Oo]ct|[Nn]ov|[Dd]ec|[0-9]{2})[ _,.-]?([0-9]{2})[ _,.-]?\s?([0-9]{4})[^\.]*/\1 \2 \3 \4 /p')
+        read -ra dateComponents <<< $coreDateData        # arrayify the variable we just filled
+        validFileName=$(eval "verifyValidFileName ${dateComponents[0]} ${dateComponents[1]} ${dateComponents[2]} ${dateComponents[3]} 'false'")    # Check against rules for valid file name entries
+        if [ "${validFileName}" = "true" ]; then        # If here, it is valid
+            normalizedDate=$(eval 'normalizeDate  ${dateComponents[1]} ${dateComponents[2]} ${dateComponents[3]}')    #return date string that we can feed to 'date' program
+            dateLocated=$(eval 'userFileSearchMatch ${normalizedDate} "${dateSearchPattern}"')
+            if [ "${dateLocated}" = "true" ]; then 
+                printf "${fileName}\n"
+                matchedFileCount=$((matchedFileCount + 1))
+            fi
+        else
             continue
         fi
     done
 
     if [ ${matchedFileCount} -eq 0 ]; then  #if here, nothing matched, print message so user knows work was attempted, there was just nothing to work on
-        if [ -z "${dateSearchMode}" ]; then
-            printf "\nNo files having convertable date formats were found\n"
-        else
-            printf "\nNo files having matching date formats were found\n"
-        fi
-    else
-        printf "\n"
+        printf "\nNo files having matching date formats were found\n"
     fi
 }
+
+#No longer being used, will be removed in future update
+# scanFile() {    #file scan function, goes through files in target location, returns name or renames based on value in dateSearchMode
+    # local dateSearchMode=${1}
+    # local dateSearchPattern=${2}
+    # local customSelection
+    # local validInput="false"
+
+    # local matchedFileCount=0
+
+    # clear
+    # if [ "${dateSearchMode}" ]; then 
+        # printf "The following files match your date search query:\n\n"
+   # else
+        # while [ "${validInput}" = "false" ]; do
+            # customDateMenu
+            # read customSelection
+            # validInput=$(eval validateAlphaInput ${customSelection})
+        # done
+        # dateFormat=$(eval customDateFormatString "${customSelection}")
+   # fi
+
+    # for fileName in *
+    # do        # Run the fileName through sed, get the possible prefix and date parts
+        # coreDateData=$(printf "${fileName}" | sed -En 's/([\w]*)[._ ]?([Jj]anuary|[Ff]ebruary|[Mm]arch|[Aa]pril|[Mm]ay|[Jj]une|[Jj]uly|[Aa]ugust|[Ss]eptember|[Oo]ctober|[Nn]ovember|[Dd]ecember|[Jj]an|[Ff]eb|[Mm]ar|[Aa]pr|[Jj]un|[Jj]ul|[Aa]ug|[Ss]ep|[Oo]ct|[Nn]ov|[Dd]ec|[0-9]{2})[ _,.-]?([0-9]{2})[ _,.-]?\s?([0-9]{4})[^\.]*/\1 \2 \3 \4 /p')
+        # read -ra dateComponents <<< $coreDateData        # arrayify the variable we just filled
+
+        # if [ -z "${dateSearchMode}" ];  then
+            # validFileName=$(eval "verifyValidFileName ${dateComponents[0]} ${dateComponents[1]} ${dateComponents[2]} ${dateComponents[3]} 'true'")    # Check against rules for valid file name entries
+        # else
+            # validFileName=$(eval "verifyValidFileName ${dateComponents[0]} ${dateComponents[1]} ${dateComponents[2]} ${dateComponents[3]} 'false'")    # Check against rules for valid file name entries
+        # fi
+
+        # if [ "${validFileName}" = "true" ]; then        # If here, it is valid
+            # normalizedDate=$(eval 'normalizeDate  ${dateComponents[1]} ${dateComponents[2]} ${dateComponents[3]}')    #return date string that we can feed to 'date' program
+             
+            # if [ -z "${dateSearchMode}" ]; then    #if nothing in dateSearchMode, we are doing file renames
+                # correctedFileName=$(eval fileRename  ${normalizedDate} "'${dateFormat}'")    #feed normalizedDate, dateFormat to fileRename to fileRename function
+
+                # cp "${fileName}" archivedAttendance
+
+                # mv -T "${fileName}" "${correctedFileName}" #file rename and standard check for success of rename
+                # if [ $? -eq 0 ]; then
+                    # printf "Renamed %s to %s\n" "${fileName}" "${correctedFileName}"
+                    # matchedFileCount=$((matchedFileCount + 1))
+                # else
+                    # printf "Failed to rename %s to %s, continuing to next file\n" "${fileName}" "${correctedFileName}"
+                # fi
+            # else
+               # dateLocated=$(eval 'userFileSearchMatch ${normalizedDate} "${dateSearchPattern}"')
+                # if [ "${dateLocated}" = "true" ]; then 
+                    # printf "${fileName}\n"
+                    # matchedFileCount=$((matchedFileCount + 1))
+                # fi
+            # fi
+        # else
+            # cp "${fileName}" badFormatFiles
+            # rm -f "${fileName}"
+            # continue
+        # fi
+    # done
+
+    # if [ ${matchedFileCount} -eq 0 ]; then  #if here, nothing matched, print message so user knows work was attempted, there was just nothing to work on
+        # if [ -z "${dateSearchMode}" ]; then
+            # printf "\nNo files having convertable date formats were found\n"
+        # else
+            # printf "\nNo files having matching date formats were found\n"
+        # fi
+    # else
+        # printf "\n"
+    # fi
+# }
 
 searchFilter() {    #function to get input for file search by date, executed when option 2 is selected in the main menu
 
@@ -484,7 +563,7 @@ searchFilter() {    #function to get input for file search by date, executed whe
     else
         convertedSearchDate="${convertedSearchDate}_([0-9]{4})"
     fi
-    scanFile "d" "${convertedSearchDate}"
+    fileDisplayCycle "${convertedSearchDate}"
 }
 
 setupPrompt() {
@@ -602,7 +681,7 @@ while [ ${finalProgramExit} != 'y' ]; do
     if [ ${menuInput} -eq 1 ]; then
         clear
         printTitle
-        scanFile "" ""    #If here, we are doing a file rename, so we go straight into scanFile
+        fileRenameCycle    #If here, we are doing a file rename
     elif [ ${menuInput} -eq 2 ]; then
         clear
         printTitle
