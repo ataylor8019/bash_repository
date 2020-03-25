@@ -4,7 +4,7 @@
 # By Allan Taylor
 # 03/18/2020
 #
-#v1.0
+#v1.4
 #
 # Usage: To scan and convert the names of files in a given directory containing various date formats
 #  to a single consistent format
@@ -59,7 +59,8 @@ helpMainMenu() {
     printf "1) Perform file name format correction \n"
     printf "2) Read data files \n"
     printf "3) Change file scan location\n"
-    printf "4) Exit \n\n"
+    printf "4) View help and usage information\n"
+    printf "5) Exit \n\n"
 
     printf "Press one of the listed number keys to be taken to the appropriate prompt or\n"
     printf "action.\n\n"
@@ -119,7 +120,7 @@ verifyValidPrefix() {
     local prefixValue=${1}
     
     #test to see if the passed value matches
-    if [ "${prefixValue,,}" = "attendance" ] || [ "${prefixValue,,}" = "list" ] || [ "${prefixValue,,}" = "attendancelist" ]; then
+    if [ "${prefixValue,,}" = "attendance" ] || [ "${prefixValue,,}" = "list" ] || [ "${prefixValue,,}" = "attendancelist" ] || [ "${prefixValue,,}" = "attendancelog" ]; then
         printf "true"
     else
         printf "false"
@@ -180,7 +181,8 @@ printMenu() {  #Display function, exists to seperate display concerns from input
     printf "1) Perform file name format correction \n"
     printf "2) Read data files \n"
     printf "3) Change file scan location\n"
-    printf "4) Exit \n\n"
+    printf "4) View help and usage information\n"
+    printf "5) Exit \n\n"
 }
 
 verifyExit() {    #exit verification function - operates directly on general variables finalProgramExit and isNotInitialRun: will refactor in update
@@ -387,21 +389,31 @@ fileRenameCycle() {    #Refactored out of scanFile, only detects dates of files 
             normalizedDate=$(eval 'normalizeDate  ${dateComponents[1]} ${dateComponents[2]} ${dateComponents[3]}')    #return date string that we can feed to 'date' program
             correctedFileName=$(eval fileRename  ${normalizedDate} "'${dateFormat}'")    #feed normalizedDate, dateFormat to fileRename to fileRename function
             cp "${fileName}" archivedAttendance
-            mv -T "${fileName}" "${correctedFileName}" #file rename and standard check for success of rename
             if [ $? -eq 0 ]; then
-                printf "Renamed %s to %s\n" "${fileName}" "${correctedFileName}"
-                matchedFileCount=$((matchedFileCount + 1))
+                mv -T "${fileName}" "${correctedFileName}" #file rename and standard check for success of rename
+                if [ $? -eq 0 ]; then
+                    printf "Renamed %s to %s\n" "${fileName}" "${correctedFileName}"
+                    matchedFileCount=$((matchedFileCount + 1))
+                else
+                    printf "Failed to rename %s to %s, continuing to next file\n" "${fileName}" "${correctedFileName}"
+                fi
             else
-                printf "Failed to rename %s to %s, continuing to next file\n" "${fileName}" "${correctedFileName}"
+                printf "Failed to copy %s to archivedAttendance, system will not rename uncopyable file - continuing to next file\n" "${fileName}"
             fi
         elif [ "${fileName}" != "dateFormatRegulator.sh" ] && [ "${fileName}" != "archivedAttendance" ] && [ "${fileName}" != "badFormatFiles" ]; then    #Extra test data is to ensure that we don't move the program file or any work folders in the location we are in
             cp "${fileName}" badFormatFiles
-            rm -f "${fileName}"
+            if [ $? -eq 0 ]; then
+                rm -f "${fileName}"
+            else
+                printf "Failed to copy %s to badFormatFiles, system will not delete uncopyable file" "${fileName}"
+            fi
         else
             continue
         fi
     done
             
+   printf "\n"
+
     if [ ${matchedFileCount} -eq 0 ]; then  #if here, nothing matched, print message so user knows work was attempted, there was just nothing to work on
         printf "\nNo files having convertable date formats were found\n"
     fi        
@@ -433,82 +445,12 @@ fileDisplayCycle() {    #Refactored out of scanFile, only changes names of files
         fi
     done
 
+    printf "\n"
+
     if [ ${matchedFileCount} -eq 0 ]; then  #if here, nothing matched, print message so user knows work was attempted, there was just nothing to work on
         printf "\nNo files having matching date formats were found\n"
     fi
 }
-
-#No longer being used, will be removed in future update
-# scanFile() {    #file scan function, goes through files in target location, returns name or renames based on value in dateSearchMode
-    # local dateSearchMode=${1}
-    # local dateSearchPattern=${2}
-    # local customSelection
-    # local validInput="false"
-
-    # local matchedFileCount=0
-
-    # clear
-    # if [ "${dateSearchMode}" ]; then 
-        # printf "The following files match your date search query:\n\n"
-   # else
-        # while [ "${validInput}" = "false" ]; do
-            # customDateMenu
-            # read customSelection
-            # validInput=$(eval validateAlphaInput ${customSelection})
-        # done
-        # dateFormat=$(eval customDateFormatString "${customSelection}")
-   # fi
-
-    # for fileName in *
-    # do        # Run the fileName through sed, get the possible prefix and date parts
-        # coreDateData=$(printf "${fileName}" | sed -En 's/([\w]*)[._ ]?([Jj]anuary|[Ff]ebruary|[Mm]arch|[Aa]pril|[Mm]ay|[Jj]une|[Jj]uly|[Aa]ugust|[Ss]eptember|[Oo]ctober|[Nn]ovember|[Dd]ecember|[Jj]an|[Ff]eb|[Mm]ar|[Aa]pr|[Jj]un|[Jj]ul|[Aa]ug|[Ss]ep|[Oo]ct|[Nn]ov|[Dd]ec|[0-9]{2})[ _,.-]?([0-9]{2})[ _,.-]?\s?([0-9]{4})[^\.]*/\1 \2 \3 \4 /p')
-        # read -ra dateComponents <<< $coreDateData        # arrayify the variable we just filled
-
-        # if [ -z "${dateSearchMode}" ];  then
-            # validFileName=$(eval "verifyValidFileName ${dateComponents[0]} ${dateComponents[1]} ${dateComponents[2]} ${dateComponents[3]} 'true'")    # Check against rules for valid file name entries
-        # else
-            # validFileName=$(eval "verifyValidFileName ${dateComponents[0]} ${dateComponents[1]} ${dateComponents[2]} ${dateComponents[3]} 'false'")    # Check against rules for valid file name entries
-        # fi
-
-        # if [ "${validFileName}" = "true" ]; then        # If here, it is valid
-            # normalizedDate=$(eval 'normalizeDate  ${dateComponents[1]} ${dateComponents[2]} ${dateComponents[3]}')    #return date string that we can feed to 'date' program
-             
-            # if [ -z "${dateSearchMode}" ]; then    #if nothing in dateSearchMode, we are doing file renames
-                # correctedFileName=$(eval fileRename  ${normalizedDate} "'${dateFormat}'")    #feed normalizedDate, dateFormat to fileRename to fileRename function
-
-                # cp "${fileName}" archivedAttendance
-
-                # mv -T "${fileName}" "${correctedFileName}" #file rename and standard check for success of rename
-                # if [ $? -eq 0 ]; then
-                    # printf "Renamed %s to %s\n" "${fileName}" "${correctedFileName}"
-                    # matchedFileCount=$((matchedFileCount + 1))
-                # else
-                    # printf "Failed to rename %s to %s, continuing to next file\n" "${fileName}" "${correctedFileName}"
-                # fi
-            # else
-               # dateLocated=$(eval 'userFileSearchMatch ${normalizedDate} "${dateSearchPattern}"')
-                # if [ "${dateLocated}" = "true" ]; then 
-                    # printf "${fileName}\n"
-                    # matchedFileCount=$((matchedFileCount + 1))
-                # fi
-            # fi
-        # else
-            # cp "${fileName}" badFormatFiles
-            # rm -f "${fileName}"
-            # continue
-        # fi
-    # done
-
-    # if [ ${matchedFileCount} -eq 0 ]; then  #if here, nothing matched, print message so user knows work was attempted, there was just nothing to work on
-        # if [ -z "${dateSearchMode}" ]; then
-            # printf "\nNo files having convertable date formats were found\n"
-        # else
-            # printf "\nNo files having matching date formats were found\n"
-        # fi
-    # else
-        # printf "\n"
-    # fi
-# }
 
 searchFilter() {    #function to get input for file search by date, executed when option 2 is selected in the main menu
 
@@ -668,9 +610,9 @@ while [ ${finalProgramExit} != 'y' ]; do
 
     while [ "${generalInputValid}" = "false" ]; do    #Loop until we don't get garbage anymore
         if [ "${isNotInitialRun}" = "true" ]; then    #If here, we have run the program loop through at least once, print the appropriate message
-            printf "\nWould you like to continue? Press 4 to quit, or any other key to continue: \n"
+            printf "\nWould you like to continue? Press 5 to quit, or any other key to continue: \n"
         else    #if here, we haven't run the program loop through at least once yet, print the appropriate message
-            printf "\nPress 4 to quit, or any other key to continue:\n"
+            printf "\nPress 5 to quit, or any other key to continue:\n"
         fi
         read menuInput
         generalInputValid=$(eval validateNumericInput ${menuInput})    #Verifies that our input is acceptable, not garbage
@@ -691,6 +633,9 @@ while [ ${finalProgramExit} != 'y' ]; do
         printTitle
         setupRoutine    #If here, we are going to change the location we are working in
     elif [ ${menuInput} -eq 4 ]; then
+        clear
+        helpOverview
+    elif [ ${menuInput} -eq 5 ]; then
         clear
         printTitle
         verifyExit    #If here, we are going to exit, verify exit
