@@ -4,11 +4,31 @@
 # By Allan Taylor
 # 03/18/2020
 #
-#v1.4
+#v1.45
 #
 # Usage: To scan and convert the names of files in a given directory containing various date formats
 #  to a single consistent format
-
+#
+#
+################################################################################
+#
+#
+# Updates:
+# 04/13/2020: Updated function validateDayMonthInput, separated it into two
+# functions: validateDayInput and validateMonthInput. Added regex to each to 
+# properly test for proper month and day inputs - before the script would just
+# gracefully fail if an impossible value were put in. Now the script queries the
+# user for a proper value if a clearly impossible month or day is input. Note:
+# context is ignored with regard to days: the program won't check to see if the
+# day is impossible in a given month - values like 02/30 and 04/31 won't be
+# flagged as errors by the updated functions, they will just fail in the date
+# conversion and return no values.
+#
+# Updated function verifyExit, so as to properly handle the null value entry
+# case. Before it would fail with a urnary operator error, now it continually
+# queries the user to enter the proper value so as to prevent the error. Also
+# converts all values to lowercase, so "Y" is converted to "y" in the comparison.
+#
 ### General program area variable definition - these variables are used in the main program after the function definitions
 validFileName="false"
 isNotInitialRun="false"
@@ -185,16 +205,6 @@ printMenu() {  #Display function, exists to seperate display concerns from input
     printf "5) Exit \n\n"
 }
 
-verifyExit() {    #exit verification function - operates directly on general variables finalProgramExit and isNotInitialRun: will refactor in update
-    local exitValue='n'
-
-    printf "Are you sure? (type y to exit) \n"
-
-    read exitValue
-    finalProgramExit=$exitValue
-    if [ "${exitValue}" != "y" ]; then isNotInitialRun="false"; fi
-}
-
 normalizeDate() {    #Take the parts fed to it, make a date in YYYYMMDD format
     local oldFileMonth=${1}
     local fileDay=${2}
@@ -320,10 +330,20 @@ customDateFormatString() {    #Display function, exists to seperate display conc
 
 
 
-validateDayMonthInput() {    #Validate that input is 2 digits, and that no one is trying to pass garbage to perform injections
+validateMonthInput() {    #Validate that input is 2 digits, and that no one is trying to pass garbage to perform injections
 local inputValue=${1}
 
-if echo "${inputValue}" | grep -E '(^[0-9]{2}$)|(^$)' ; then
+if echo "${inputValue}" | grep -E '(^1[0-2]$|^0[1-9]$)|(^$)' ; then
+    printf "true"
+else
+    printf "false"
+fi
+}
+
+validateDayInput() {    #Validate that input is 2 digits, and that no one is trying to pass garbage to perform injections
+local inputValue=${1}
+
+if echo "${inputValue}" | grep -E '(^0[1-9]$|^[12][0-9]$|^3[01]$)|(^$)' ; then
     printf "true"
 else
     printf "false"
@@ -358,6 +378,21 @@ if echo "${inputValue}" | grep -E '(^[a-zA-Z]{1}$)|(^$)' ; then
 else
     printf "false"
 fi
+}
+
+verifyExit() {    #exit verification function - operates directly on general variables finalProgramExit and isNotInitialRun: will refactor in update
+    local exitValue='n'
+    local validInput="false"
+
+    while [ "${validInput}" = "false" ] || [ -z "${exitValue}" ]; do
+    printf "Are you sure? (type y to exit) \n"
+
+    read exitValue
+    validInput=$(eval validateAlphaInput ${exitValue})
+    done
+
+    finalProgramExit="${exitValue,,}"
+    if [ "${finalProgramExit}" != "y" ]; then isNotInitialRun="false"; fi
 }
 
 fileRenameCycle() {    #Refactored out of scanFile, only detects dates of files and returns valid matches
@@ -466,10 +501,12 @@ searchFilter() {    #function to get input for file search by date, executed whe
     printf "________________________________________________________________________________"
     printf "\n\n\n"
     
+
+    # 
     while [ "${inputValid}" = "false" ]; do
         printf "Enter month in numeric format (01: January...12: December) \n"
         read inputMonth
-        inputValid=$(eval validateDayMonthInput ${inputMonth})
+        inputValid=$(eval validateMonthInput ${inputMonth})
     done
     inputValid="false"
 
@@ -484,7 +521,7 @@ searchFilter() {    #function to get input for file search by date, executed whe
     while [ "${inputValid}" = "false" ]; do
         printf "Enter day of month (as two digits - pad with zeros if necessary - i.e. 1 = 01) \n"
         read inputDay
-        inputValid=$(eval validateDayMonthInput ${inputDay})
+        inputValid=$(eval validateDayInput ${inputDay})
     done
     inputValid="false"
 
