@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# dateFormatConverter.sh
+# dateFormatRegulator.sh
 # By Allan Taylor
 # 03/18/2020
 #
@@ -28,6 +28,9 @@
 # case. Before it would fail with a urnary operator error, now it continually
 # queries the user to enter the proper value so as to prevent the error. Also
 # converts all values to lowercase, so "Y" is converted to "y" in the comparison.
+#
+#
+# 5/17/2020: Updated commented name to match name in Github, rest of program.
 #
 ### General program area variable definition - these variables are used in the main program after the function definitions
 validFileName="false"
