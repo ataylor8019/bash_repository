@@ -1,0 +1,48 @@
+I am the owner of a banquet hall, and I have a large amount of records that have become unwieldy to manage and impossible to recognize.
+
+Problem description:
+
+My banquet hall hosts guests for various occasions, at irregular times of the month. When hosting an event, I have my staff create an attendance list, and store the list in a folder named eventAttendance on a laptop specifically designated for that purpose. After three years, there are around 1000 lists in the folder, recording the attendance at various events.
+
+This is the core of the problem: I am thinking of moving these lists into a database in the near future. Right now, I would like to be able to access a given date or series of dates in a file more quickly. Unfortunately, the many members of my staff have a number of ways of naming the attendance list files. They are as follows (using the first day of the year 2020 as an example):
+
+January-1-2020
+January-01-2020
+January_1_2020
+January_01_2020
+Jan-1-2020
+Jan-01-2020
+Jan_1_2020
+Jan_01_2020
+01-01-2020
+01_01_2020
+01.01.2020
+01012020
+
+Additionally, the files are prefixed with the following:
+attendancelist
+attendance
+list
+
+
+As you can see, a thousand or so files, split among all of these naming formats, are impossible to scan quickly. They also present a problem for shell scripts and batch files looking to load a consistent collection of files into a database .
+
+I require you to write an application that converts all of the above formats into the following:
+
+attendancelog_01_01_2020
+
+Where the first two digits are the month, the second two digits are the day of the month, and the last four digits are the year..
+
+Additionally, this application should be able to display to the user all of the files for a given month or year, regardless of what format the file is in; it should also be able to convert the files to a number of pre-made formats of my choosing. These include:
+
+January 01, 2020
+January012020
+Jan 01, 2020
+Jan012020
+01-01-2020
+01.01.2020
+01012020
+01_01_2020
+
+Please contact me at banquethalladmin@example.com to clarify specifics. Thank you.
+
