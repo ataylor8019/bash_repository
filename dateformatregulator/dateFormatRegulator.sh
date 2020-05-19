@@ -32,6 +32,10 @@
 #
 # 5/17/2020: Updated commented name to match name in Github, rest of program.
 #
+# 5/19/2020: Updated function verifyValidDate to match full final day of valid
+# Unix time - 01/18/2038. Before it would only match up to 2037, to avoid
+# hassle of coding for the extra 18 full days in 2038.
+#
 ### General program area variable definition - these variables are used in the main program after the function definitions
 validFileName="false"
 isNotInitialRun="false"
@@ -155,9 +159,19 @@ verifyValidDate() {
     local dayPart=${2}
     local yearPart=${3}
 
-    #test to see if the values passed are not null, and the year isn't over 2037 - date doesn't format or work past Jan 2037
+    #test to see if the values passed are not null, and the year isn't over 2038 - date doesn't format or work past Jan 2038
     if [ -n "${monthPart}" ] && [ -n "${dayPart}" ] && [ -n "${yearPart}" ]; then
-        if [ ${yearPart} -le 2037 ]; then printf "true"; fi
+        if [ ${yearPart} -le 2037 ]; then 
+            printf "true"
+        elif [ ${yearPart} -eq 2038 ]; then
+            if [ ${monthPart} -eq 1 ] && [ ${dayPart} -le 18 ]; then
+                printf "true"
+            else
+                printf "false"
+            fi
+        else
+            printf "false"
+        fi
     else
         printf "false"
     fi
