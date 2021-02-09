@@ -2,9 +2,9 @@
 
 # dateFormatRegulator.sh
 # By Allan Taylor
-# 03/18/2020
+# 02/09/2021
 #
-#v1.45
+#v1.50
 #
 # Usage: To scan and convert the names of files in a given directory containing various date formats
 #  to a single consistent format
@@ -36,9 +36,23 @@
 # Unix time - 01/18/2038. Before it would only match up to 2037, to avoid
 # hassle of coding for the extra 18 full days in 2038.
 #
+# 2/09/2021: removed general variable "isNotInitialRun", changed name of variable
+# "finalProgramExit" to "continueProgram", changed workings of function
+# "verifyExit", restructured main procedure.
+# - main procedure now presents continue prompt based on menu items selected, no
+#  need for any initial run variables.
+# - with change in main procedure, "verifyExit" now does not operate on general
+#  variables, it returns a value to the continueProgram variable based on user 
+#  input.
+# - added looping to force user to input general correct range of user data in 
+#  continue, exit prompts ('y' or 'n').
+# - setup fallthrough so that improper numeric (single digit) entries in menu
+#  screen just causes the menu to be reprinted again.
+# - generally cleaned up a lot of unnecessary calls to various procedures in the
+#  menu screen.
+#
 ### General program area variable definition - these variables are used in the main program after the function definitions
 validFileName="false"
-isNotInitialRun="false"
 generalInputValid="false"
 correctedFileName=""
 menuInput=0
@@ -348,68 +362,67 @@ customDateFormatString() {    #Display function, exists to seperate display conc
 
 
 validateMonthInput() {    #Validate that input is 2 digits, and that no one is trying to pass garbage to perform injections
-local inputValue=${1}
+    local inputValue=${1}
 
-if echo "${inputValue}" | grep -E '(^1[0-2]$|^0[1-9]$)|(^$)' ; then
-    printf "true"
-else
-    printf "false"
-fi
+    if echo "${inputValue}" | grep -E '(^1[0-2]$|^0[1-9]$)|(^$)' ; then
+        printf "true"
+    else
+        printf "false"
+    fi
 }
 
 validateDayInput() {    #Validate that input is 2 digits, and that no one is trying to pass garbage to perform injections
-local inputValue=${1}
+    local inputValue=${1}
 
-if echo "${inputValue}" | grep -E '(^0[1-9]$|^[12][0-9]$|^3[01]$)|(^$)' ; then
-    printf "true"
-else
-    printf "false"
-fi
+    if echo "${inputValue}" | grep -E '(^0[1-9]$|^[12][0-9]$|^3[01]$)|(^$)' ; then
+        printf "true"
+    else
+        printf "false"
+    fi
 }
 
 validateYearInput() {    #Validate that input is a year, 4 digits, and that no one is trying to pass garbage to perform injections
-local inputValue=${1}
+    local inputValue=${1}
 
-if echo "${inputValue}" | grep -E '(^[0-9]{4}$)|(^$)' ; then
-    printf "true"
-else
-    printf "false"
-fi
+    if echo "${inputValue}" | grep -E '(^[0-9]{4}$)|(^$)' ; then
+        printf "true"
+    else
+        printf "false"
+    fi
 }
 
 validateNumericInput() {    #Validate that input is one number, 0-9, upper or lowercase
-local inputValue=${1}
+    local inputValue=${1}
 
-if echo "${inputValue}" | grep -E '^[0-9]{1}$' ; then
-    printf "true"
-else
-    printf "false"
-fi
+    if echo "${inputValue}" | grep -E '^[0-9]{1}$' ; then
+        printf "true"
+    else
+        printf "false"
+    fi
 }
 
 validateAlphaInput() {    #Validate that input is one letter, a-z, upper or lowercase
-local inputValue=${1}
+    local inputValue=${1}
 
-if echo "${inputValue}" | grep -E '(^[a-zA-Z]{1}$)|(^$)' ; then
-    printf "true"
-else
-    printf "false"
-fi
+    if echo "${inputValue}" | grep -E '(^[a-zA-Z]{1}$)|(^$)' ; then
+        printf "true"
+    else
+        printf "false"
+    fi
 }
 
-verifyExit() {    #exit verification function - operates directly on general variables finalProgramExit and isNotInitialRun: will refactor in update
+verifyExit() {    #exit verification function - operates directly on general variables continueProgram and isNotInitialRun: will refactor in update
     local exitValue='n'
-    local validInput="false"
-
-    while [ "${validInput}" = "false" ] || [ -z "${exitValue}" ]; do
-    printf "Are you sure? (type y to exit) \n"
 
     read exitValue
-    validInput=$(eval validateAlphaInput ${exitValue})
-    done
 
-    finalProgramExit="${exitValue,,}"
-    if [ "${finalProgramExit}" != "y" ]; then isNotInitialRun="false"; fi
+    if [ "${exitValue}" = "y" ]; then 
+       printf "n"
+    elif [ "${exitValue}" = "n" ]; then
+        printf "y"
+    else
+        printf "x"
+    fi
 }
 
 fileRenameCycle() {    #Refactored out of scanFile, only detects dates of files and returns valid matches
@@ -603,6 +616,7 @@ setupRoutine() {
 
 
 ### Begin main program execution ###
+showContinuePrompt="false"
 clear
 
 
@@ -653,53 +667,63 @@ printAuthor
 setupRoutine
 clear    #clear the screen, the previous functions print menus that we want cleared going to the next execution stage
 
-finalProgramExit='n' #Setup for program loop below
+continueProgram='y' #Setup for program loop below
 
-#While we haven't said yes to finalProgramExit
-while [ ${finalProgramExit} != 'y' ]; do
+#While we haven't said yes to continueProgram
+while [ ${continueProgram} != 'n' ]; do
+    clear    #clear the screen, the previous functions print menus that we want cleared going to the next execution stage
     printTitle    #Print the title screen
     printMenu    #Print the general menu screen
 
-
-
     while [ "${generalInputValid}" = "false" ]; do    #Loop until we don't get garbage anymore
-        if [ "${isNotInitialRun}" = "true" ]; then    #If here, we have run the program loop through at least once, print the appropriate message
-            printf "\nWould you like to continue? Press 5 to quit, or any other key to continue: \n"
-        else    #if here, we haven't run the program loop through at least once yet, print the appropriate message
-            printf "\nPress 5 to quit, or any other key to continue:\n"
-        fi
         read menuInput
         generalInputValid=$(eval validateNumericInput ${menuInput})    #Verifies that our input is acceptable, not garbage
     done
-    generalInputValid="false"    #Set this variable to false, we will be using it again in the program
 
-    #In all of the below options, the screen is cleared, and printTitle executed to maintain visual continuity between menu and execution screens
     if [ ${menuInput} -eq 1 ]; then
-        clear
-        printTitle
+        showContinuePrompt="true"
         fileRenameCycle    #If here, we are doing a file rename
     elif [ ${menuInput} -eq 2 ]; then
-        clear
-        printTitle
+        showContinuePrompt="true"
         searchFilter    #If here, we are going to do a file date search, go into searchFilter to get the date data
     elif [ ${menuInput} -eq 3 ]; then
-        clear
-        printTitle
+        showContinuePrompt="true"
         setupRoutine    #If here, we are going to change the location we are working in
     elif [ ${menuInput} -eq 4 ]; then
+        showContinuePrompt="true"
         clear
         helpOverview
     elif [ ${menuInput} -eq 5 ]; then
-        clear
-        printTitle
-        verifyExit    #If here, we are going to exit, verify exit
+        showContinuePrompt="false"
     elif [ ${menuInput} -eq 0 ]; then
         clear
         exit    #If here, exit immediately (used for debugging purposes)
     else
+        generalInputValid="false"
         continue    #If here, it's not one of the above, continue the loop
     fi
-    isNotInitialRun="true"    #We've run through the loop at least once, mark the variable accordingly for conditional statements above
+
+
+          if [ "${showContinuePrompt}" = "true" ]; then    #If here, the user has selected an option that would require a continue prompt in the context of the program
+            printf "\nWould you like to continue? Press y to continue, or n to quit: \n"
+            read continueProgram
+            while [ "${continueProgram}" != "y" ] &&  [ "${continueProgram}" != "n" ]; do    #Loop until we don't get garbage anymore
+                printf "\nInvalid response. Press y to continue, or n to quit: \n"
+                read continueProgram
+            done
+            
+        else    #if here, the user wishes to exit, print the appropriate message, no need to continue prompt as above
+            printf "Are you sure? (type y to exit) \n"
+            continueProgram=$(eval verifyExit)
+            while [ "${continueProgram}" != "y" ] && [ "${continueProgram}" != "n" ]; do
+                printf "\nInvalid response. Press y to quit, or n to continue: \n"
+                continueProgram=$(eval verifyExit)
+            done
+            if [ "${continueProgram}" != "y" ]; then break; fi
+        fi
+
+
+    generalInputValid="false"    #Set this variable to false, we will be using it again in the program
 done
 
 ### End main program execution ###
